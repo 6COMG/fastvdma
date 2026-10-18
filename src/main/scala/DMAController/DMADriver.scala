@@ -1,5 +1,6 @@
 /*
 Copyright (C) 2019-2025 Antmicro
+Copyright (C) 2026 6COM
 
 http://www.apache.org/licenses/LICENSE-2.0
 
@@ -15,27 +16,13 @@ SPDX-License-Identifier: Apache-2.0
 package DMAController
 
 import circt.stage.ChiselStage
-import DMAConfig._
-import DMAUtils.{DMAParseInput, DMALogger}
+import DMAUtils.DMALogger
 import DMAController.DMAConfig._
 
 object DMADriver extends App {
-  val config =
-    if (args.length == 0) {
-      DMALogger.warn("No custom configuration was specified.")
-      DMALogger.info("Using default parameters and AXI_AXIL_AXI configuration.")
-      new DMAConfig()
-    } else {
-      DMALogger.info("Applying custom configuration")
-      DMAParseInput.parseconfig(args(0)) match {
-        case Left(x) => x
-        case _ => {
-          DMALogger.error("Something went wrong when acquiring DMA Parameters")
-          throw new Exception("Invalid configuration")
-        }
-      }
-    }
+  DMALogger.info("Using the default parameters and AXI_AXIL_AXI configuration.")
+  DMALogger.info("Edit DMAConfig.scala to change the configuration.")
 
-  implicit val dmaConfig: DMAConfig = config
+  implicit val dmaConfig: DMAConfig = new DMAConfig()
   ChiselStage.emitSystemVerilogFile(new DMATop)
 }

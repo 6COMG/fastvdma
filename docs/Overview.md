@@ -7,6 +7,7 @@ FastVDMA is a DMA controller designed with portability and customizability in mi
 - Interrupts
 - 2D transfers with configurable stride
 - External frame synchronization inputs
+- Runtime-selectable transfer direction for AXI4<->AXI4 cores
 
 ---
 

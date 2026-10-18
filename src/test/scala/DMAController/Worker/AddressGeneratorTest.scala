@@ -1,5 +1,6 @@
 /*
 Copyright (C) 2019-2025 Antmicro
+Copyright (C) 2026 6COM
 
 http://www.apache.org/licenses/LICENSE-2.0
 
@@ -23,6 +24,7 @@ class AddressGeneratorTest(dut : AddressGenerator) extends PeekPokeTester(dut) {
   poke(dut.io.ctl.lineLength, 21)
   poke(dut.io.ctl.lineCount, 1004)
   poke(dut.io.ctl.lineGap, 37)
+  poke(dut.io.ctl.wordShift, 2)
   poke(dut.io.xfer.done, 0)
 
   step(10)

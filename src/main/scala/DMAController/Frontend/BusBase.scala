@@ -1,5 +1,6 @@
 /*
 Copyright (C) 2019-2025 Antmicro
+Copyright (C) 2026 6COM
 
 http://www.apache.org/licenses/LICENSE-2.0
 
@@ -51,20 +52,20 @@ object Bus {
   def getReader(implicit dmaConfig: DMAConfig): IOBus[BusIf] = {
     val (busType, _, _) = dmaConfig.getBusConfig()
     busType match {
-      case AXI  => new AXI4Reader(dmaConfig.addrWidth, dmaConfig.readDataWidth)
-      case AXIS => new AXIStreamSlave(dmaConfig.addrWidth, dmaConfig.readDataWidth)
-      case WB   => new WishboneClassicReader(dmaConfig.addrWidth, dmaConfig.readDataWidth)
-      case PWB  => new WishboneClassicPipelinedReader(dmaConfig.addrWidth, dmaConfig.readDataWidth)
+      case AXI  => new AXI4Reader(dmaConfig.addrWidth, dmaConfig.sourceWidth)
+      case AXIS => new AXIStreamSlave(dmaConfig.addrWidth, dmaConfig.sourceWidth)
+      case WB   => new WishboneClassicReader(dmaConfig.addrWidth, dmaConfig.sourceWidth)
+      case PWB  => new WishboneClassicPipelinedReader(dmaConfig.addrWidth, dmaConfig.sourceWidth)
     }
   }
 
   def getWriter(implicit dmaConfig: DMAConfig): IOBus[BusIf] = {
     val (_, _, busType) = dmaConfig.getBusConfig()
     busType match {
-      case AXI  => new AXI4Writer(dmaConfig.addrWidth, dmaConfig.readDataWidth)
-      case AXIS => new AXIStreamMaster(dmaConfig.addrWidth, dmaConfig.readDataWidth)
-      case WB   => new WishboneClassicWriter(dmaConfig.addrWidth, dmaConfig.readDataWidth)
-      case PWB  => new WishboneClassicPipelinedWriter(dmaConfig.addrWidth, dmaConfig.readDataWidth)
+      case AXI  => new AXI4Writer(dmaConfig.addrWidth, dmaConfig.destWidth)
+      case AXIS => new AXIStreamMaster(dmaConfig.addrWidth, dmaConfig.destWidth)
+      case WB   => new WishboneClassicWriter(dmaConfig.addrWidth, dmaConfig.destWidth)
+      case PWB  => new WishboneClassicPipelinedWriter(dmaConfig.addrWidth, dmaConfig.destWidth)
     }
   }
 
@@ -79,18 +80,18 @@ object Bus {
   def getReaderBus(implicit dmaConfig: DMAConfig): BusIf = {
     val (busType, _, _) = dmaConfig.getBusConfig()
     busType match {
-      case AXI      => new AXI4(dmaConfig.addrWidth, dmaConfig.readDataWidth)
-      case AXIS     => Flipped(new AXIStream(dmaConfig.readDataWidth))
-      case WB | PWB => new WishboneMaster(dmaConfig.addrWidth, dmaConfig.readDataWidth)
+      case AXI      => new AXI4(dmaConfig.addrWidth, dmaConfig.sourceWidth)
+      case AXIS     => Flipped(new AXIStream(dmaConfig.sourceWidth))
+      case WB | PWB => new WishboneMaster(dmaConfig.addrWidth, dmaConfig.sourceWidth)
     }
   }
 
   def getWriterBus(implicit dmaConfig: DMAConfig): BusIf = {
     val (_, _, busType) = dmaConfig.getBusConfig()
     busType match {
-      case AXI      => new AXI4(dmaConfig.addrWidth, dmaConfig.readDataWidth)
-      case AXIS     => new AXIStream(dmaConfig.readDataWidth)
-      case WB | PWB => new WishboneMaster(dmaConfig.addrWidth, dmaConfig.readDataWidth)
+      case AXI      => new AXI4(dmaConfig.addrWidth, dmaConfig.destWidth)
+      case AXIS     => new AXIStream(dmaConfig.destWidth)
+      case WB | PWB => new WishboneMaster(dmaConfig.addrWidth, dmaConfig.destWidth)
     }
   }
 }

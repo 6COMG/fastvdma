@@ -1,5 +1,6 @@
 /*
 Copyright (C) 2019-2025 Antmicro
+Copyright (C) 2026 6COM
 
 http://www.apache.org/licenses/LICENSE-2.0
 
@@ -21,6 +22,7 @@ class TransferSplitterTest(dut : TransferSplitter) extends PeekPokeTester(dut){
   poke(dut.io.xferIn.length, 2048)
   poke(dut.io.xferIn.valid, 0)
   poke(dut.io.xferOut.done, 0)
+  poke(dut.io.wordShift, 2)
 
   step(10)
 

@@ -1,5 +1,6 @@
 /*
 Copyright (C) 2019-2025 Antmicro
+Copyright (C) 2026 6COM
 
 http://www.apache.org/licenses/LICENSE-2.0
 
@@ -30,6 +31,9 @@ class DMAFullStream(dut: DMATop) extends DMAFull(dut) {
                                 val sync: SyncBundle}]
 
   val control = new AxiLiteMasterBfm(io.control, peek[Bits], poke[Bits], println)
-  val reader = new AxiStreamMasterBfm(io.read, width * height, peek[Bits], poke[Bits], println)
-  val writer = new Axi4MemoryBfm(io.write, width * height, peek[Bits], poke[Bits], println)
+  // One RGBA pixel is 4 bytes; sizes are expressed in data bus widths.
+  val readWords = width * height * 4 / (io.read.dataWidth / 8)
+  val writeWords = width * height * 4 / (io.write.dataWidth / 8)
+  val reader = new AxiStreamMasterBfm(io.read, readWords, peek[Bits], poke[Bits], println)
+  val writer = new Axi4MemoryBfm(io.write, writeWords, peek[Bits], poke[Bits], println)
 }

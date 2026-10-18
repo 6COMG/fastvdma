@@ -1,5 +1,6 @@
 /*
 Copyright (C) 2019-2025 Antmicro
+Copyright (C) 2026 6COM
 
 http://www.apache.org/licenses/LICENSE-2.0
 
@@ -25,6 +26,17 @@ class ImageTransfer(dut: DMATop, dmaFull: DMAFull)(implicit val dmaConfig: DMACo
   val height = 256
   val min = 0
   val max = width * height * 2
+
+  // Number of bytes carried by a single data beat.
+  val dataBytes = dmaConfig.sourceWidth / 8
+  // A line holds `width` RGBA pixels (4 bytes each). Register values for line
+  // length/stride are expressed in units of the data bus width, so convert.
+  val lineWords = width * 4 / dataBytes
+
+  // Destination byte address inside the (larger) writer image. This is a byte
+  // address and therefore does not depend on the data bus width.
+  val writerStartAddr = height * width * 4 + width * 2
+
   var cnt: Int = 0
 
   def waitRange(data: Bits, exp: Int, min: Int, max: Int) : Unit = {
@@ -60,14 +72,14 @@ class ImageTransfer(dut: DMATop, dmaFull: DMAFull)(implicit val dmaConfig: DMACo
   writer.loadFromFile("./img1.rgba")
 
   control.writePush(Register.ReaderStartAddr, 0)
-  control.writePush(Register.ReaderLineLen, width)
+  control.writePush(Register.ReaderLineLen, lineWords)
   control.writePush(Register.ReaderLineCnt, height)
   control.writePush(Register.ReaderStride, 0)
 
-  control.writePush(Register.WriterStartAddr, height * width * 4 + width * 2)
-  control.writePush(Register.WriterLineLen, width)
+  control.writePush(Register.WriterStartAddr, writerStartAddr)
+  control.writePush(Register.WriterLineLen, lineWords)
   control.writePush(Register.WriterLineCnt, height)
-  control.writePush(Register.WriterStride, width)
+  control.writePush(Register.WriterStride, lineWords)
 
   step(100)
 

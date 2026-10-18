@@ -1,5 +1,6 @@
 /*
 Copyright (C) 2019-2025 Antmicro
+Copyright (C) 2026 6COM
 
 http://www.apache.org/licenses/LICENSE-2.0
 
@@ -17,8 +18,6 @@ package DMAController.Bfm
 import DMAController.Bus._
 import chisel3.Bits
 
-import java.nio._
-
 class Axi4MemoryBfm(val axi: AXI4,
                         val size: Int,
                         val peek: Bits => BigInt,
@@ -26,7 +25,11 @@ class Axi4MemoryBfm(val axi: AXI4,
                         val println: String => Unit)
 extends Axi4Bfm {
 
-  var buf: Array[Int] = new Array[Int](size)
+  // Number of bytes carried by a single data beat. Addresses are byte
+  // addresses, so the word index is `address / dataBytes`.
+  val dataBytes: Int = axi.dataWidth / 8
+
+  var buf: Array[BigInt] = Array.fill(size)(BigInt(0))
 
   class Write {
     private object State extends Enumeration {
@@ -66,25 +69,33 @@ extends Axi4Bfm {
       state match {
         case State.Idle => {
           poke(axi.aw.awready, 1)
+          poke(axi.b.bvalid, 0)
           state = State.WriteAddr
           len = 0
         }
         case State.WriteAddr => {
           if(awvalid != 0) {
-            addr = awaddr.toInt / 4
+            addr = (awaddr / dataBytes).toInt
             xferLen = awlen.toInt + 1
             poke(axi.aw.awready, 0)
-            poke(axi.w.wready, 1)
+            // Keep `wready` low until WriteData so the first accepted beat is
+            // the one observed in the same cycle there.
+            poke(axi.w.wready, 0)
             state = State.WriteData
           }
         }
         case State.WriteData => {
-          if(wvalid != 0) {
-            buf(addr) = wdata.toInt
+          // `wready` is asserted here (not in WriteAddr), so consuming on the
+          // same-cycle `wvalid` observes exactly the beat accepted this edge,
+          // even when the master leaves gaps between beats.
+          poke(axi.w.wready, 1)
+          if(peek(axi.w.wvalid) != 0) {
+            buf(addr) = peek(axi.w.wdata)
             addr += 1
             len += 1
-            if(wlast != 0) {
-              poke(axi.w.wready, 0)
+            if(peek(axi.w.wlast) != 0) {
+              // Leave `wready` high through this final beat's handshake; it is
+              // dropped in WriteResp so the last beat is not cancelled.
               poke(axi.b.bvalid, 1)
               poke(axi.b.bresp, 0)
               state = State.WriteResp
@@ -95,8 +106,11 @@ extends Axi4Bfm {
           }
         }
         case State.WriteResp => {
+          poke(axi.w.wready, 0)
+          // Hold `bvalid` until the master accepts it, then return to Idle
+          // (where `bvalid` is deasserted).
+          poke(axi.b.bvalid, 1)
           if(bready != 0) {
-            poke(axi.b.bvalid, 0)
             state = State.Idle
           }
         }
@@ -108,10 +122,18 @@ extends Axi4Bfm {
   class Read {
     private object State extends Enumeration {
       type State = Value
-      val Idle, ReadAddr, ReadData = Value
+      val Idle, ReadData = Value
+    }
+
+    // Within a burst, either the next beat still has to be driven, or the
+    // current beat is already on the bus and is waiting to be accepted.
+    private object Phase extends Enumeration {
+      type Phase = Value
+      val NeedPresent, Holding = Value
     }
 
     private var state = State.Idle
+    private var phase = Phase.NeedPresent
 
     private var araddr: BigInt = 0
     private var arlen: BigInt = 0
@@ -119,8 +141,8 @@ extends Axi4Bfm {
 
     private var rready: BigInt = 0
 
-    private var addr: Int = 0
-    private var len: Int = 0
+    private var idx: Int = 0
+    private var baseAddr: Int = 0
     private var xferLen: Int = 0
 
     private def peekInputs(): Unit = {
@@ -132,55 +154,66 @@ extends Axi4Bfm {
     }
 
     def update(t: Long): Unit = {
+      // Sample the current cycle's inputs first: acceptance must be evaluated in
+      // the same cycle the beat is driven, otherwise beats are dropped or
+      // duplicated whenever the master applies backpressure.
+      peekInputs()
       state match {
         case State.Idle => {
           poke(axi.ar.arready, 1)
-          poke(axi.r.rlast, 0)
           poke(axi.r.rvalid, 0)
-          state = State.ReadAddr
-          len = 0
-        }
-        case State.ReadAddr => {
+          poke(axi.r.rlast, 0)
           if(arvalid != 0) {
-            addr = araddr.toInt / 4
+            baseAddr = (araddr / dataBytes).toInt
             xferLen = arlen.toInt + 1
-            poke(axi.ar.arready, 0)
+            idx = 0
+            phase = Phase.NeedPresent
             state = State.ReadData
           }
         }
         case State.ReadData => {
-          if(rready != 0) {
-            poke(axi.r.rdata, buf(addr))
-            addr += 1
-            len += 1
-            poke(axi.r.rvalid, 1)
-
-            if(xferLen == len) {
-              poke(axi.r.rlast, 1)
-              state = State.Idle
+          // Drop `arready` only after the address handshake has been observed.
+          poke(axi.ar.arready, 0)
+          phase match {
+            case Phase.NeedPresent => {
+              val last = idx == xferLen - 1
+              poke(axi.r.rdata, buf(baseAddr + idx))
+              poke(axi.r.rlast, if(last) 1 else 0)
+              poke(axi.r.rvalid, 1)
+              if(rready != 0) {
+                idx += 1
+                if(idx == xferLen) {
+                  // Leave the final (rlast) beat on the bus for this edge; it
+                  // is deasserted when the FSM returns to Idle next cycle.
+                  state = State.Idle
+                }
+              } else {
+                phase = Phase.Holding
+              }
+            }
+            case Phase.Holding => {
+              // Beat already on the bus; leave it untouched until accepted.
+              if(rready != 0) {
+                idx += 1
+                if(idx == xferLen) {
+                  state = State.Idle
+                } else {
+                  phase = Phase.NeedPresent
+                }
+              }
             }
           }
         }
       }
-      peekInputs()
     }
   }
 
   def loadFromFile(filename: String): Unit = {
-    val path = file.Paths.get(filename)
-    val buffer = file.Files.readAllBytes(path)
-    val bb = ByteBuffer.wrap(buffer)
-    buf = new Array[Int](buffer.length/4)
-    bb.asIntBuffer.get(buf)
+    buf = WordPacking.loadWords(filename, dataBytes)
   }
 
   def saveToFile(filename: String): Unit = {
-    val path = file.Paths.get(filename)
-    val bb = ByteBuffer.allocate(4*buf.length)
-    for (i <- 0 until buf.length) {
-      bb.putInt(buf(i))
-    }
-    file.Files.write(path, bb.array())
+    WordPacking.saveWords(filename, buf, dataBytes)
   }
 
   private val writer = new Write()

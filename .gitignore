@@ -1,4 +1,6 @@
 ### Project Specific stuff
+*.sv
+*.png
 test_run_dir/*
 ### XilinxISE template
 # intermediate build files
@@ -345,3 +347,5 @@ hs_err_pid*
 
 *.rgba
 out.png
+speed_results.csv
+stress_bus_dump.txt

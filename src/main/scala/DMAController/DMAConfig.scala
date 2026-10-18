@@ -1,5 +1,6 @@
 /*
 Copyright (C) 2019-2025 Antmicro
+Copyright (C) 2026 6COM
 
 http://www.apache.org/licenses/LICENSE-2.0
 
@@ -24,8 +25,8 @@ import chisel3.util.Queue
 class DMAConfig(
     val busConfig: String = "AXI_AXIL_AXI",
     val addrWidth: Int = 32,
-    val readDataWidth: Int = 32,
-    val writeDataWidth: Int = 32,
+    val sourceWidth: Int = 64,
+    val destWidth: Int = 64,
     val readMaxBurst: Int = 0,
     val writeMaxBurst: Int = 16,
     val reader4KBarrier: Boolean = false,
@@ -36,7 +37,20 @@ class DMAConfig(
     val fifoDepth: Int = 512
 ) {
   assert(DMAConfig.isValid(busConfig))
-  assert(readDataWidth == writeDataWidth)
+
+  // Source and destination buses may have different data widths; they are
+  // bridged by a width converter in DMATop. Both must be a whole number of
+  // bytes.
+  assert(sourceWidth % 8 == 0, s"sourceWidth ($sourceWidth) must be a multiple of 8")
+  assert(destWidth % 8 == 0, s"destWidth ($destWidth) must be a multiple of 8")
+
+  // When both data buses are AXI4 the top builds both directions and a runtime
+  // `Direction` register flips which physical port is the source
+  // (0 = forward: `io.read` sources, `io.write` sinks; 1 = reverse).
+  def canFlip: Boolean = {
+    val (inBus, _, outBus) = getBusConfig()
+    inBus == DMAConfig.AXI && outBus == DMAConfig.AXI
+  }
 
   def getBusConfig() = DMAConfig.getBusConfig(busConfig)
 }
@@ -146,4 +160,7 @@ object Register {
   val WriterStride = 0x2c
   val Version = 0x30
   val Configuration = 0x34
+  // Runtime transfer direction for bidirectional builds.
+  // 0 = forward (read bus is the source), 1 = reverse (write bus is the source).
+  val Direction = 0x38
 }

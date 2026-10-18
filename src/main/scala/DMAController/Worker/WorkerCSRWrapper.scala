@@ -1,5 +1,6 @@
 /*
 Copyright (C) 2019-2025 Antmicro
+Copyright (C) 2026 6COM
 
 http://www.apache.org/licenses/LICENSE-2.0
 
@@ -18,7 +19,7 @@ import DMAController.CSR._
 import DMAController.DMAConfig._
 import DMAUtils._
 import chisel3._
-import chisel3.util.Cat
+import chisel3.util.{Cat, log2Ceil}
 
 class WorkerCSRWrapper(implicit dmaConfig: DMAConfig) extends DMAModule {
   val io = IO(new Bundle {
@@ -27,13 +28,16 @@ class WorkerCSRWrapper(implicit dmaConfig: DMAConfig) extends DMAModule {
     val sync = new SyncBundle
     val xferRead = new XferDescBundle(dmaConfig.addrWidth)
     val xferWrite = new XferDescBundle(dmaConfig.addrWidth)
+    // Runtime transfer direction: false = forward (read bus is the source),
+    // true = reverse (write bus is the source).
+    val isReverse = Output(Bool())
   })
 
-  val addressGeneratorRead = Module(new AddressGenerator(dmaConfig.addrWidth, dmaConfig.readDataWidth))
-  val transferSplitterRead = Module(new TransferSplitter(dmaConfig.addrWidth, dmaConfig.readDataWidth,
+  val addressGeneratorRead = Module(new AddressGenerator(dmaConfig.addrWidth, dmaConfig.sourceWidth))
+  val transferSplitterRead = Module(new TransferSplitter(dmaConfig.addrWidth, dmaConfig.sourceWidth,
                                                          dmaConfig.readMaxBurst, dmaConfig.reader4KBarrier))
-  val addressGeneratorWrite = Module(new AddressGenerator(dmaConfig.addrWidth, dmaConfig.writeDataWidth))
-  val transferSplitterWrite = Module(new TransferSplitter(dmaConfig.addrWidth, dmaConfig.writeDataWidth,
+  val addressGeneratorWrite = Module(new AddressGenerator(dmaConfig.addrWidth, dmaConfig.destWidth))
+  val transferSplitterWrite = Module(new TransferSplitter(dmaConfig.addrWidth, dmaConfig.destWidth,
                                                           dmaConfig.writeMaxBurst, dmaConfig.writer4KBarrier))
 
   val status = RegNext(Cat(addressGeneratorRead.io.ctl.busy, addressGeneratorWrite.io.ctl.busy))
@@ -51,8 +55,10 @@ class WorkerCSRWrapper(implicit dmaConfig: DMAConfig) extends DMAModule {
   val clear = Wire(UInt())
 
   val envTag = System.getenv("TAG")
-  val tag = if (envTag.isEmpty()) "v0.0" else envTag
-  val version = RegInit(tag.filter(_.isDigit).toInt.U)
+  val tag = if (envTag == null || envTag.isEmpty()) "v0.0" else envTag
+  // Tags may not contain digits (e.g. "prototype"); fall back to version 0.
+  val tagDigits = tag.filter(_.isDigit)
+  val version = RegInit((if (tagDigits.isEmpty) "0" else tagDigits).toInt.U)
   val (in, csr, out) = dmaConfig.getBusConfig()
   val encConfig = RegInit((in << 8 | csr << 4 | out).U(dmaConfig.addrWidth.W))
 
@@ -80,10 +86,28 @@ class WorkerCSRWrapper(implicit dmaConfig: DMAConfig) extends DMAModule {
   addressGeneratorWrite.io.ctl.lineCount := SimpleCSR(io.csr(10))
   addressGeneratorWrite.io.ctl.lineGap := SimpleCSR(io.csr(11))
 
+  // Direction register (index 14). When forward the source is the read bus,
+  // when reverse the source is the write bus. The source/destination address
+  // generators and splitters step by the active beat size. Only AXI4<->AXI4
+  // tops build both datapaths, so the flip is ignored otherwise.
+  val direction = SimpleCSR(io.csr(14))
+  val reverse = if (dmaConfig.canFlip) direction(0).asBool else false.B
+  io.isReverse := reverse
+
+  val readShift = log2Ceil(dmaConfig.sourceWidth / 8)
+  val writeShift = log2Ceil(dmaConfig.destWidth / 8)
+  val sourceShift = Mux(reverse, writeShift.U(6.W), readShift.U(6.W))
+  val destShift = Mux(reverse, readShift.U(6.W), writeShift.U(6.W))
+
+  addressGeneratorRead.io.ctl.wordShift := sourceShift
+  transferSplitterRead.io.wordShift := sourceShift
+  addressGeneratorWrite.io.ctl.wordShift := destShift
+  transferSplitterWrite.io.wordShift := destShift
+
   StatusCSR(version, io.csr(12))
   StatusCSR(encConfig, io.csr(13))
 
-  for (i <- 14 until dmaConfig.controlRegCount) {
+  for (i <- 15 until dmaConfig.controlRegCount) {
     SimpleCSR(io.csr(i))
   }
 

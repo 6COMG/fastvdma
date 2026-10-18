@@ -1,5 +1,6 @@
 /*
 Copyright (C) 2019-2025 Antmicro
+Copyright (C) 2026 6COM
 
 http://www.apache.org/licenses/LICENSE-2.0
 
@@ -17,8 +18,6 @@ package DMAController.Bfm
 import DMAController.Bus._
 import chisel3.Bits
 
-import java.nio._
-
 import scala.collection.mutable.ListBuffer
 
 class AxiStreamMasterBfm(val axi: AXIStream,
@@ -28,7 +27,10 @@ class AxiStreamMasterBfm(val axi: AXIStream,
                         val println: String => Unit) 
 extends AxiStreamBfm {
 
-  private var txList: ListBuffer[Int] = new ListBuffer()
+  // Number of bytes carried by a single stream beat.
+  private val dataBytes: Int = axi.dataWidth / 8
+
+  private var txList: ListBuffer[BigInt] = new ListBuffer()
 
   private object State extends Enumeration {
     type State = Value
@@ -42,16 +44,11 @@ extends AxiStreamBfm {
   private var tready: BigInt = 0
 
   def loadFromFile(filename: String): Unit = {
-    val path = file.Paths.get(filename)
-    val buffer = file.Files.readAllBytes(path)
-    val bb = ByteBuffer.wrap(buffer)
-    //bb.order(ByteOrder.nativeOrder)
-    var buf = new Array[Int](buffer.length/4)
-    bb.asIntBuffer.get(buf)
-    for(i <- 0 until buf.length) {
-      txList += buf(i)
+    val words = WordPacking.loadWords(filename, dataBytes)
+    for (i <- words.indices) {
+      txList += words(i)
     }
-    println("AXI Stream BFM, file %s, %d words".format(filename, buf.length))
+    println("AXI Stream BFM, file %s, %d words".format(filename, words.length))
   }
 
   def saveToFile(filename: String): Unit = {

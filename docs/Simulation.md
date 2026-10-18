@@ -28,9 +28,15 @@ To run all tests, including all mentioned above, execute:
 make testall
 ```
 
-Each test run generates a `.vcd` file which can be opened using GTKWave or any other `.vcd` viewer.
+Test runs can generate `.vcd` files which can be opened using GTKWave or any
+other `.vcd` viewer. Output files are located in separate subdirectories inside
+the `test_run_dir` directory. Dumping waveforms for the full 256x256 image
+transfers (`ControllerSpec`) produces tens of megabytes per test and dominates
+the runtime, so it is disabled by default and enabled with `DUMP_VCD=1`, e.g.:
 
-Output files are located in a separate sub directories inside the `test_run_dir` directory.
+```bash
+DUMP_VCD=1 make testM2M
+```
 
 The full test should generate an `outM2M.png/outS2M.png` file demonstrating a 2D transfer with configurable stride.
 The resulting image should look similar to:

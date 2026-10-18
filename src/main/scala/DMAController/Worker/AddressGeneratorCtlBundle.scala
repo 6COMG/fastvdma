@@ -1,5 +1,6 @@
 /*
 Copyright (C) 2019-2025 Antmicro
+Copyright (C) 2026 6COM
 
 http://www.apache.org/licenses/LICENSE-2.0
 
@@ -23,4 +24,7 @@ class AddressGeneratorCtlBundle(val addrWidth : Int) extends Bundle{
   val lineLength = Input(UInt(addrWidth.W))
   val lineCount = Input(UInt(addrWidth.W))
   val lineGap = Input(UInt(addrWidth.W))
+  // log2 of the number of bytes carried by one data beat. Selectable at
+  // runtime so the same address generator can serve either data width.
+  val wordShift = Input(UInt(6.W))
 }

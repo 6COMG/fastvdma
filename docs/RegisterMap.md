@@ -20,6 +20,7 @@ Current register layout is shown in the table below:
 |`0x2c` |[Writer stride between lines](writer-stride-between-lines-0x2c) |
 |`0x30` |[Version register](version-register-0x30) |
 |`0x34` |[Configuration register](configuration-register-0x34) |
+|`0x38` |[Direction register](direction-register-0x38) |
 
 
 ## Detailed register description
@@ -143,6 +144,21 @@ Current register layout is shown in the table below:
 |Bit |Name                   |Description                          |
 |----|-----------------------|-------------------------------------|
 |0-31|Configuration register |Reader, writer and control bus types |
+
+---
+
+### Direction register (0x38)
+
+|Bit |Name      |Description                                                                        |
+|----|----------|------------------------------------------------------------------------------------|
+|0   |Direction |`0`: source is the read bus (`io.read`), destination is the write bus (`io.write`).<br>`1`: source is the write bus, destination is the read bus |
+|1-31|-         |Unused                                                                              |
+
+Selects which physical AXI4 data port acts as the source. It only has an effect
+for AXI4<->AXI4 configurations (where both datapaths are built); for all other
+bus configurations the datapath is single-directional and this register is
+ignored. It resets to `0` (read bus is the source). Set it before starting a
+transfer.
 
 ---
 

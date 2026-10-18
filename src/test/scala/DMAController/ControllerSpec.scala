@@ -1,5 +1,6 @@
 /*
 Copyright (C) 2019-2025 Antmicro
+Copyright (C) 2026 6COM
 
 http://www.apache.org/licenses/LICENSE-2.0
 
@@ -21,10 +22,19 @@ import chiseltest._
 
 class ControllerSpec extends AnyFlatSpec with ChiselScalatestTester {
   behavior of "ControllerSpec"
+
+  // Dumping waveforms for a full 256x256 RGBA transfer produces ~40 MB per test
+  // and dominates the runtime, so it is opt-in via DUMP_VCD=1.
+  private val vcdAnnotations =
+    if (sys.env.get("DUMP_VCD").exists(v => v == "1" || v.equalsIgnoreCase("true")))
+      Seq(WriteVcdAnnotation)
+    else
+      Seq.empty
+
   val dmaConfigMM2MM = new DMAConfig("AXI_AXIL_AXI")
   it should "perform 2D MM2MM transfer with stride mem to mem" in {
     test(new DMATop()(dmaConfigMM2MM))
-      .withAnnotations(Seq(WriteVcdAnnotation))
+      .withAnnotations(vcdAnnotations)
       .runPeekPoke(dut =>
         new ImageTransfer(dut, new DMAFullMem(dut))(dmaConfigMM2MM)
       )
@@ -33,7 +43,7 @@ class ControllerSpec extends AnyFlatSpec with ChiselScalatestTester {
   val dmaConfigS2MM = new DMAConfig("AXIS_AXIL_AXI")
   it should "perform 2D S2MM transfer with stride stream to mem" in {
     test(new DMATop()(dmaConfigS2MM))
-      .withAnnotations(Seq(WriteVcdAnnotation))
+      .withAnnotations(vcdAnnotations)
       .runPeekPoke(dut =>
         new ImageTransfer(dut, new DMAFullStream(dut))(dmaConfigS2MM)
       )

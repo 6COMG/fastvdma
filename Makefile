@@ -11,7 +11,7 @@ export TAG
 
 
 verilog:
-	$(SBT) "runMain $(DRIVER) $(CONFIG_FILE)"
+	$(SBT) "runMain $(DRIVER)"
 
 testsetup:
 	convert -resize $(SIZE_HALF)x$(SIZE_HALF) $(IMG) img0.rgba
@@ -27,13 +27,20 @@ testS2M: testsetup
 
 test: testS2M testM2M
 
+speed:
+	$(SBT) "Speed / test"
+	@echo "Results written to speed_results.csv"
+
+stress:
+	$(SBT) "Stress / test"
+
 testall: test
 	$(SBT) "test"
 
 clean:
 	$(SBT) clean
 
-.PHONY: verilog test testall
+.PHONY: verilog test testall speed stress
 
 %:
 	sphinx-build -M $@ docs build $(SPHINXOPTS) $(0)

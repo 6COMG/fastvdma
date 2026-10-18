@@ -1,5 +1,6 @@
 /*
 Copyright (C) 2019-2025 Antmicro
+Copyright (C) 2026 6COM
 
 http://www.apache.org/licenses/LICENSE-2.0
 
@@ -30,12 +31,13 @@ class TransferSplitter(
   val io = IO(new Bundle {
     val xferIn = Flipped(new XferDescBundle(addressWidth))
     val xferOut = new XferDescBundle(addressWidth)
+    // log2 of the number of bytes carried by one data beat. Runtime-selectable
+    // so the splitter can serve either data width or direction.
+    val wordShift = Input(UInt(6.W))
   })
 
   if (maxLength != 0) {
     val sIdle :: sSplit :: sSplitWait :: Nil = Enum(3)
-
-    val dataBytes: Int = dataWidth / 8
 
     val barrierBytes: Int = 4096
 
@@ -81,17 +83,17 @@ class TransferSplitter(
           if (canCrossBarrier) {
             length_o := maxLength.U
             length_i := length_i - maxLength.U
-            address_i := address_i + maxLength.U * dataBytes.U
+            address_i := address_i + (maxLength.U << io.wordShift)
           } else {
             val bytesToBarrier = barrierBytes.U - address_i % barrierBytes.U
-            when(bytesToBarrier < maxLength.U * dataBytes.U) {
-              length_o := bytesToBarrier / dataBytes.U
-              length_i := length_i - bytesToBarrier / dataBytes.U
+            when(bytesToBarrier < (maxLength.U << io.wordShift)) {
+              length_o := bytesToBarrier >> io.wordShift
+              length_i := length_i - (bytesToBarrier >> io.wordShift)
               address_i := address_i + bytesToBarrier
             }.otherwise {
               length_o := maxLength.U
               length_i := length_i - maxLength.U
-              address_i := address_i + maxLength.U * dataBytes.U
+              address_i := address_i + (maxLength.U << io.wordShift)
             }
           }
 
@@ -99,17 +101,17 @@ class TransferSplitter(
           if (canCrossBarrier) {
             length_o := length_i
             length_i := 0.U
-            address_i := address_i + length_i * dataBytes.U
+            address_i := address_i + (length_i << io.wordShift)
           } else {
             val bytesToBarrier = barrierBytes.U - address_i % barrierBytes.U
-            when(bytesToBarrier < length_i * dataBytes.U) {
-              length_o := bytesToBarrier / dataBytes.U
-              length_i := length_i - bytesToBarrier / dataBytes.U
+            when(bytesToBarrier < (length_i << io.wordShift)) {
+              length_o := bytesToBarrier >> io.wordShift
+              length_i := length_i - (bytesToBarrier >> io.wordShift)
               address_i := address_i + bytesToBarrier
             }.otherwise {
               length_o := length_i
               length_i := 0.U
-              address_i := address_i + length_i * dataBytes.U
+              address_i := address_i + (length_i << io.wordShift)
             }
           }
         }

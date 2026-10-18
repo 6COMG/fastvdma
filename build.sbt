@@ -42,9 +42,8 @@ resolvers ++= Seq(
 // Library name, Organization, Version
 val defaultVersions = Map(
   "chisel" -> "org.chipsalliance" -> chiselVersion,
-  "chiseltest" -> "edu.berkeley.cs" -> "6.0-SNAPSHOT",
+  "chiseltest" -> "edu.berkeley.cs" -> "6.0.0",
   "chisel-iotesters" -> "edu.berkeley.cs" -> "2.5.5+",
-  "play-json" -> "com.typesafe.play" -> "2.8.+",
   "scalatest" -> "org.scalatest" -> "3.2.16"
 )
 
@@ -66,3 +65,31 @@ scalacOptions ++= scalacOptionsVersion(scalaVersion.value) ++ Seq(
   "-Ymacro-annotations"
 )
 javacOptions ++= javacOptionsVersion(scalaVersion.value)
+
+// The throughput speed test lives in its own configuration/source directory so
+// it is not part of the default `test` run. Run it with:
+//   sbt "Speed / test"
+lazy val Speed = config("speed") extend Test
+configs(Speed)
+inConfig(Speed)(Defaults.testSettings)
+Speed / scalaSource := baseDirectory.value / "src" / "speed" / "scala"
+
+// The stress suite lives in its own configuration/source directory so it is not
+// part of the default `test` run. Run it with:
+//   sbt "Stress / test"
+lazy val Stress = config("stress") extend Test
+configs(Stress)
+inConfig(Stress)(Defaults.testSettings)
+Stress / scalaSource := baseDirectory.value / "src" / "stress" / "scala"
+
+// `Defaults.testSettings` on the custom Speed/Stress configurations also defines
+// `sourceDirectories`/`semanticdbTargetRoot`, which sbt's unused-key lint flags
+// because we drive compilation through `scalaSource` instead. They are harmless
+// (and read by `compile`), so exclude them from the lint rather than silence the
+// whole check.
+Global / excludeLintKeys ++= Set(
+  Speed / sourceDirectories,
+  Speed / semanticdbTargetRoot,
+  Stress / sourceDirectories,
+  Stress / semanticdbTargetRoot
+)

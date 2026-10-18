@@ -1,5 +1,6 @@
 /*
 Copyright (C) 2019-2025 Antmicro
+Copyright (C) 2026 6COM
 
 http://www.apache.org/licenses/LICENSE-2.0
 
@@ -71,7 +72,7 @@ class AddressGenerator(val addrWidth: Int, val dataWidth: Int)(implicit dmaConfi
       valid := true.B
       address_o := address_i
       length_o := length_i
-      address_i := address_i + (length_i * (dataWidth / 8).U) + (lineGap * (dataWidth / 8).U)
+      address_i := address_i + (length_i << io.ctl.wordShift) + (lineGap << io.ctl.wordShift)
 
       lineCount := lineCount - 1.U
       state := sLineWait
