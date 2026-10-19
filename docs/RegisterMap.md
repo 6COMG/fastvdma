@@ -59,14 +59,13 @@ immediately.
 |3   |Start misaligned|Reads as `1` if a start address was not aligned to the transfer granularity; writing the Control register clears it |
 |4-31|-              |Unused                                                     |
 
-The start address of each frontend must be aligned to the **transfer
-granularity**, i.e. the wider of the two data buses: with a source bus of `S`
-bytes and a destination bus of `D` bytes, the required alignment is
-`max(S, D)` bytes (for example, crossing a 4-byte bus with an 8-byte bus needs
-8-byte alignment, and equal widths need the bus width). The AXI frontends issue
-full-width bursts, and the width converter has no byte offset, so a misaligned
-start would mis-pack data. It is not blocked, but is flagged by the
-`Start misaligned` status bit so integration can fail fast.
+The start address of each frontend must be aligned to its **own** data-bus width
+(i.e. `1 << wordShift` bytes): 4 bytes for a 32-bit CPU side, 64 bytes for a
+512-bit island side. Alignment is per side, so a 4-byte-aligned 32-bit CPU buffer
+is valid even when the destination is a 512-bit bus. The AXI frontends issue
+full-width bursts, so a start that is not size-aligned would mis-pack data. It is
+not blocked, but is flagged by the `Start misaligned` status bit so integration
+can fail fast.
 
 ---
 
@@ -180,6 +179,14 @@ for AXI4<->AXI4 configurations (where both datapaths are built); for all other
 bus configurations the datapath is single-directional and this register is
 ignored. It resets to `0` (read bus is the source). Set it before starting a
 transfer.
+
+The **Reader\*** registers describe the source and the **Writer\*** registers the
+destination, so at `Direction = 1` they swap roles: the 512-bit (`destWidth`) port
+becomes the source and is programmed through the Reader\* registers (start
+address `0x10`, line length `0x14`, ...), while the 32-bit port is programmed
+through the Writer\* registers. Line lengths remain in the word size of the port
+being programmed (`bytes / (width / 8)`), and each port keeps its own start
+alignment (4 B for 32-bit, 64 B for 512-bit) regardless of direction.
 
 ---
 

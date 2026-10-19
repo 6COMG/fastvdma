@@ -19,7 +19,7 @@ new DMAConfig(
     addrWidth = 32,
     sourceWidth = 64,
     destWidth = 512,
-    readMaxBurst = 0,
+    readMaxBurst = 256,   // split read bursts (AXI4: <=256 beats, no 4 KiB crossing)
     writeMaxBurst = 16,
     reader4KBarrier = false,
     writer4KBarrier = true,
@@ -83,37 +83,70 @@ datapaths and the runtime `Direction` register (`0x38`) swaps the source and
 destination. See the [register map](RegisterMap.md#direction-register-0x38).
 :::
 
+:::{admonition}
+:class: note
+Asymmetric widths add integration constraints: each side's start address must be
+aligned to its own bus width (4 B for 32-bit, 64 B for 512-bit), line lengths are
+expressed in that side's bus words, and AXI4 bursts must not exceed 256 beats or
+cross 4 KiB. See [Width-related
+constraints](../README.md#width-related-constraints) and
+[`readMaxBurst`](#readmaxburst).
+:::
+
 ---
 
 ### readMaxBurst
 
-This field specifies the maximal burst for the `BUS-IN` bus. That is, the maximum number of bytes within the single transaction.
+This field specifies the length of the longest single read burst, in **data
+beats** (bus words) of the `BUS-IN`/source side — the same unit as the reader
+line length.
 
 :::{admonition}
-The `0`-value is reserved for the stream interfaces.
+The `0` value is reserved for the stream interfaces and **disables the transfer
+splitter** (the whole line is issued as one burst).
+:::
+
+:::{admonition}
+:class: warning
+AXI4 bursts must not exceed **256 beats** and must not cross a **4 KiB**
+boundary. On a wide source bus these limits are reached quickly — a 512-bit
+(64 B) beat crosses 4 KiB after only **64 beats**. Set `readMaxBurst` to a
+non-zero value (≤ 256) whenever a source line can exceed the bus limits, in
+particular for a **512-bit source**, which is `BUS-IN` under `Direction = 1`.
+Leaving it at `0` in that case issues an out-of-spec burst that hangs or aliases.
 :::
 
 ---
 
 ### writeMaxBurst
 
-This field specifies the maximal burst for the `BUS-OUT` bus. That is, the maximum number of bytes within the single transaction.
+This field specifies the length of the longest single write burst, in **data
+beats** (bus words) of the `BUS-OUT`/destination side.
 
 :::{admonition}
-The `0`-value is reserved for the stream interfaces.
+:class: warning
+As with `readMaxBurst`, an AXI4 burst must not exceed **256 beats** or cross a
+**4 KiB** boundary. The default (`16`) is non-zero and safe for the usual case;
+raise it only within the 256-beat limit.
 :::
 
 ---
 
 ### reader4KBarrier
 
-This field takes the `true`/`false` value whether the `BUS-IN` interface may cross 4KB (4096 bytes) in a single transfer.
+This field selects whether the `BUS-IN`/source splitter **shortens a burst at the
+4 KiB boundary**. When `false` the splitter inserts a split so a burst never
+crosses 4 KiB; when `true` it does not, assuming the interconnect handles it. It
+has no effect when `readMaxBurst` is `0` (splitting disabled). The default is
+`false` (boundary enforced).
 
 ---
 
 ### writer4KBarrier
 
-This field takes the `true`/`false` value whether the `BUS-OUT` interface may cross 4KB (4096 bytes) in a single transfer.
+Same as `reader4KBarrier`, for the `BUS-OUT`/destination side and `writeMaxBurst`.
+The default is `true` (crossing allowed); set it to `false` if the destination
+fabric does not tolerate bursts crossing a 4 KiB boundary.
 
 ---
 

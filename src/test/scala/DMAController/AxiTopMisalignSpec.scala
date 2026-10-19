@@ -20,8 +20,9 @@ import org.scalatest.flatspec.AnyFlatSpec
 import DMAController.DMAConfig._
 
 /**
-  * Regression coverage for the `Start misaligned` status bit across a crossing
-  * with asymmetric bus widths (transfer granularity = wider bus width).
+  * Regression coverage for the `Start misaligned` status bit. Alignment is per
+  * side (each frontend's own data-bus width), so a 4-byte-aligned 32-bit CPU
+  * source is valid while the 512-bit island side needs 64-byte alignment.
   */
 class AxiTopMisalignSpec extends AnyFlatSpec with ChiselScalatestTester {
   behavior of "AXI top wrapper start alignment diagnostics"
