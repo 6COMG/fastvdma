@@ -20,6 +20,9 @@ import chisel3._
 class AddressGeneratorCtlBundle(val addrWidth : Int) extends Bundle{
   val start = Input(Bool())
   val busy = Output(Bool())
+  // Pulses for one cycle when a start request is discarded because a previous
+  // request is already queued awaiting launch (depth-1 pending start).
+  val startOverrun = Output(Bool())
   val startAddress = Input(UInt(addrWidth.W))
   val lineLength = Input(UInt(addrWidth.W))
   val lineCount = Input(UInt(addrWidth.W))

@@ -40,7 +40,17 @@ class WorkerCSRWrapper(implicit dmaConfig: DMAConfig) extends DMAModule {
   val transferSplitterWrite = Module(new TransferSplitter(dmaConfig.addrWidth, dmaConfig.destWidth,
                                                           dmaConfig.writeMaxBurst, dmaConfig.writer4KBarrier))
 
-  val status = RegNext(Cat(addressGeneratorRead.io.ctl.busy, addressGeneratorWrite.io.ctl.busy))
+  // Sticky "start overrun": a start request was discarded because a previous
+  // request was still queued (depth-1 pending start). Cleared when the Control
+  // register is written again, so software can check it after arming.
+  val startOverrun = RegInit(false.B)
+  when(addressGeneratorRead.io.ctl.startOverrun || addressGeneratorWrite.io.ctl.startOverrun) {
+    startOverrun := true.B
+  }.elsewhen(io.csr(0).dataWrite) {
+    startOverrun := false.B
+  }
+
+  val status = RegNext(Cat(startOverrun, addressGeneratorRead.io.ctl.busy, addressGeneratorWrite.io.ctl.busy))
 
   val readerSync = RegNext(io.sync.readerSync)
   val readerSyncOld = RegNext(readerSync)

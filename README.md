@@ -32,6 +32,14 @@ substantive differences from that original are:
   per-word turnaround bubble), so asymmetric transfers sustain the narrower bus
   instead of dropping to `ratio/(ratio+1)` of it; see
   [Asymmetric widths and performance](#asymmetric-widths-and-performance).
+- **Robust multi-transfer re-arm (default).** Each address generator keeps a
+  depth-1 pending start: a transfer armed while the previous one is still in
+  flight is snapshotted (descriptor + geometry) and launched automatically once
+  the bus goes idle, so software no longer has to wait for the busy bits to clear
+  and a start can never be silently dropped. A start written while one is already
+  queued is dropped and flagged by the new **Start overrun** status bit
+  (Status `0x04`, bit 2); see
+  [RegisterMap](docs/RegisterMap.md#status-register-0x04).
 - **Configuration in code, not JSON.** The upstream JSON configuration file
   (`make verilog CONFIG_FILE=...` and `DMAParseInput`) was removed. Bus
   configuration and widths are edited directly in

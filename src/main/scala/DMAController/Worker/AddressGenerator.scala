@@ -43,21 +43,51 @@ class AddressGenerator(val addrWidth: Int, val dataWidth: Int)(implicit dmaConfi
   val first = RegInit(false.B)
   val busy = RegInit(false.B)
 
+  // Depth-1 pending start. A start requested while a transfer is in flight is
+  // snapshotted (descriptor + geometry) and launched when the generator returns
+  // to idle, so re-arming no longer has to wait for the busy signal to clear and
+  // a start can never be silently dropped. A start requested while a pending one
+  // is already queued is discarded and flagged via `startOverrun`.
+  val startPrev = RegNext(io.ctl.start, false.B)
+  val startRise = io.ctl.start && !startPrev
+
+  val pending = RegInit(false.B)
+  val pendingAddr = RegInit(0.U(addrWidth.W))
+  val pendingLength = RegInit(0.U(addrWidth.W))
+  val pendingCount = RegInit(0.U(addrWidth.W))
+  val pendingGap = RegInit(0.U(addrWidth.W))
+
   io.xfer.address := address_o
   io.xfer.length := length_o
   io.xfer.valid := valid
   io.xfer.first := first
   io.ctl.busy := busy
+  io.ctl.startOverrun := startRise && pending
 
-  when(state === sIdle) {
-    busy := false.B
-  }.otherwise {
-    busy := true.B
+  // Busy covers both an active transfer and a queued (not yet launched) one.
+  busy := (state =/= sIdle) || pending
+
+  // Snapshot a start that arrives while a transfer is in flight.
+  when(startRise && state =/= sIdle) {
+    pendingAddr := io.ctl.startAddress
+    pendingLength := io.ctl.lineLength
+    pendingCount := io.ctl.lineCount
+    pendingGap := io.ctl.lineGap
+    pending := true.B
   }
 
   switch(state) {
     is(sIdle) {
-      when(io.ctl.start) {
+      when(pending) {
+        // Launch the queued transfer from its snapshot.
+        state := sLine
+        address_i := pendingAddr
+        length_i := pendingLength
+        lineCount := pendingCount
+        lineGap := pendingGap
+        first := true.B
+        pending := false.B
+      }.elsewhen(io.ctl.start) {
         state := sLine
 
         address_i := io.ctl.startAddress

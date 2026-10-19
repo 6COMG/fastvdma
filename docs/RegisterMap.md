@@ -37,6 +37,16 @@ Current register layout is shown in the table below:
 |5   |Reader loop mode    |Write `1` to automatically start next read frontend transfer after finishing the current one        |
 |6-31|-                   |Unused                                                                                              |
 
+The start bits are **queued (depth 1)**: if a start is written while a transfer
+is still in flight, the frontend snapshots the descriptor (start address, line
+length/count/stride) and launches it automatically when the current transfer
+finishes. It is therefore not necessary to wait for the [Status](#status-register-0x04)
+busy bits to clear before re-arming. A start written while a previous start is
+already queued (two starts in flight) is dropped; this is flagged by the
+`Start overrun` status bit. Because the descriptor is snapshotted when the start
+is written, the reader/writer registers may be reprogrammed for the next transfer
+immediately.
+
 ---
 
 ### Status register (0x04)
@@ -45,7 +55,8 @@ Current register layout is shown in the table below:
 |----|---------------|-----------------------------------------------------------|
 |0   |Writer busy    |Reads as `1` when write frontend is busy transferring data |
 |1   |Reader busy    |Reads as `1` when read frontend is busy transferring data  |
-|2-31|-              |Unused                                                     |
+|2   |Start overrun  |Reads as `1` if a start was dropped because one was already queued; writing the Control register clears it |
+|3-31|-              |Unused                                                     |
 
 ---
 
