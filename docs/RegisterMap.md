@@ -56,7 +56,17 @@ immediately.
 |0   |Writer busy    |Reads as `1` when write frontend is busy transferring data |
 |1   |Reader busy    |Reads as `1` when read frontend is busy transferring data  |
 |2   |Start overrun  |Reads as `1` if a start was dropped because one was already queued; writing the Control register clears it |
-|3-31|-              |Unused                                                     |
+|3   |Start misaligned|Reads as `1` if a start address was not aligned to the transfer granularity; writing the Control register clears it |
+|4-31|-              |Unused                                                     |
+
+The start address of each frontend must be aligned to the **transfer
+granularity**, i.e. the wider of the two data buses: with a source bus of `S`
+bytes and a destination bus of `D` bytes, the required alignment is
+`max(S, D)` bytes (for example, crossing a 4-byte bus with an 8-byte bus needs
+8-byte alignment, and equal widths need the bus width). The AXI frontends issue
+full-width bursts, and the width converter has no byte offset, so a misaligned
+start would mis-pack data. It is not blocked, but is flagged by the
+`Start misaligned` status bit so integration can fail fast.
 
 ---
 

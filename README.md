@@ -40,6 +40,10 @@ substantive differences from that original are:
   queued is dropped and flagged by the new **Start overrun** status bit
   (Status `0x04`, bit 2); see
   [RegisterMap](docs/RegisterMap.md#status-register-0x04).
+- **Alignment diagnostics.** Start addresses must be aligned to the transfer
+  granularity (`max(sourceWidth, destWidth)/8` bytes). A misaligned start is not
+  blocked but is flagged by the **Start misaligned** status bit (Status `0x04`,
+  bit 3), so integration failures are visible instead of silent data corruption.
 - **Configuration in code, not JSON.** The upstream JSON configuration file
   (`make verilog CONFIG_FILE=...` and `DMAParseInput`) was removed. Bus
   configuration and widths are edited directly in

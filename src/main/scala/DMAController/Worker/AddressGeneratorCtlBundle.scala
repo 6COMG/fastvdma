@@ -23,6 +23,11 @@ class AddressGeneratorCtlBundle(val addrWidth : Int) extends Bundle{
   // Pulses for one cycle when a start request is discarded because a previous
   // request is already queued awaiting launch (depth-1 pending start).
   val startOverrun = Output(Bool())
+  // Pulses for one cycle when a start address is not aligned to the transfer
+  // granularity (max data-bus width across the crossing). The transfer still
+  // runs, but data would be mis-packed, so this is surfaced for fail-fast
+  // integration diagnostics.
+  val startMisaligned = Output(Bool())
   val startAddress = Input(UInt(addrWidth.W))
   val lineLength = Input(UInt(addrWidth.W))
   val lineCount = Input(UInt(addrWidth.W))

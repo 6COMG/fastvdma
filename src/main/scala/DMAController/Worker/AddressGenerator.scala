@@ -57,12 +57,22 @@ class AddressGenerator(val addrWidth: Int, val dataWidth: Int)(implicit dmaConfi
   val pendingCount = RegInit(0.U(addrWidth.W))
   val pendingGap = RegInit(0.U(addrWidth.W))
 
+  // Full-width AXI bursts (see AXI4Reader/Writer) require the start address to
+  // be aligned to the bus width, and the width converter has no byte offset, so
+  // across a crossing the narrow stream must also start on a wider-word
+  // boundary. The binding constraint is therefore the wider of the two buses;
+  // flag (but do not gate) a misaligned start so integration can fail fast.
+  val alignBytes = math.max(dmaConfig.sourceWidth, dmaConfig.destWidth) / 8
+  val alignMask = (alignBytes - 1).U(addrWidth.W)
+  val misaligned = (io.ctl.startAddress & alignMask) =/= 0.U
+
   io.xfer.address := address_o
   io.xfer.length := length_o
   io.xfer.valid := valid
   io.xfer.first := first
   io.ctl.busy := busy
   io.ctl.startOverrun := startRise && pending
+  io.ctl.startMisaligned := startRise && misaligned
 
   // Busy covers both an active transfer and a queued (not yet launched) one.
   busy := (state =/= sIdle) || pending

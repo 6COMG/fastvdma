@@ -50,7 +50,18 @@ class WorkerCSRWrapper(implicit dmaConfig: DMAConfig) extends DMAModule {
     startOverrun := false.B
   }
 
-  val status = RegNext(Cat(startOverrun, addressGeneratorRead.io.ctl.busy, addressGeneratorWrite.io.ctl.busy))
+  // Sticky "start misaligned": a start address was not aligned to the transfer
+  // granularity, so the transfer would mis-pack data. Cleared on Control write.
+  val startMisaligned = RegInit(false.B)
+  when(addressGeneratorRead.io.ctl.startMisaligned || addressGeneratorWrite.io.ctl.startMisaligned) {
+    startMisaligned := true.B
+  }.elsewhen(io.csr(0).dataWrite) {
+    startMisaligned := false.B
+  }
+
+  val status = RegNext(
+    Cat(startMisaligned, startOverrun, addressGeneratorRead.io.ctl.busy, addressGeneratorWrite.io.ctl.busy)
+  )
 
   val readerSync = RegNext(io.sync.readerSync)
   val readerSyncOld = RegNext(readerSync)
