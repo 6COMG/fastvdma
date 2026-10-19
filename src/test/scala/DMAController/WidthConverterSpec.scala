@@ -25,9 +25,9 @@ import DMAUtils.WidthConverter
   *
   * These pin the AXI little-endian lane mapping independently of
   * `WordPacking`/the BFMs: the first input word (lowest address) must land in
-  * the least-significant bits of the wider word -- the DLAC `32<->512` island
-  * crossing regression. Round-trip integration tests cannot catch this because
-  * their oracle shares the converter's packing assumption.
+  * the least-significant bits of the wider word. Round-trip integration tests
+  * cannot catch this because their oracle shares the converter's packing
+  * assumption.
   */
 class WidthConverterSpec extends AnyFlatSpec with ChiselScalatestTester {
   behavior of "WidthConverter"

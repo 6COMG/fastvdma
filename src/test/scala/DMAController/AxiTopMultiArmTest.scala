@@ -25,7 +25,7 @@ import DMAController.DMAConfig._
   * Exercises the default depth-1 pending start: transfer 2 is programmed and
   * armed **from the same reset without waiting for transfer 1 to finish**. The
   * frontend must snapshot transfer 2's descriptor and launch it after transfer 1,
-  * so both island addresses end up holding their own tag. Before the pending
+  * so both destination addresses end up holding their own tag. Before the pending
   * start this pattern silently dropped transfer 2's start and re-used transfer
   * 1's address.
   */
@@ -99,10 +99,10 @@ class AxiTopMultiArmTest(dut: DMATop)(implicit val dmaConfig: DMAConfig) extends
 
   private val expA = WordPacking.bytesToWords(tagA, writeBytes)
   private val expB = WordPacking.bytesToWords(tagB, writeBytes)
-  private val islandWordA = 0
-  private val islandWordB = 4096 / writeBytes
-  private val lastA = islandWordA + writeLineWords - 1
-  private val lastB = islandWordB + writeLineWords - 1
+  private val destWordA = 0
+  private val destWordB = 4096 / writeBytes
+  private val lastA = destWordA + writeLineWords - 1
+  private val lastB = destWordB + writeLineWords - 1
 
   // Wait for the last word of BOTH transfers (the last word of transfer 2 is
   // only written once transfer 2 completes).
@@ -117,12 +117,12 @@ class AxiTopMultiArmTest(dut: DMATop)(implicit val dmaConfig: DMAConfig) extends
   step(200)
 
   for (j <- expA.indices) {
-    val got = writer.buf(islandWordA + j) & writeMask
+    val got = writer.buf(destWordA + j) & writeMask
     val exp = expA(j) & writeMask
     assert(got == exp, s"transfer 1 word $j: got 0x${got.toString(16)}, expected 0x${exp.toString(16)}")
   }
   for (j <- expB.indices) {
-    val got = writer.buf(islandWordB + j) & writeMask
+    val got = writer.buf(destWordB + j) & writeMask
     val exp = expB(j) & writeMask
     assert(got == exp, s"transfer 2 word $j: got 0x${got.toString(16)}, expected 0x${exp.toString(16)}")
   }

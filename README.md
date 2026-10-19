@@ -40,9 +40,9 @@ substantive differences from that original are:
   queued is dropped and flagged by the new **Start overrun** status bit
   (Status `0x04`, bit 2); see
   [RegisterMap](docs/RegisterMap.md#status-register-0x04).
-- **Alignment diagnostics.** Each frontend's start address must be aligned to its
-  own data-bus width (4 B for a 32-bit CPU side, 64 B for the 512-bit island
-  side) — alignment is per side, so a 4-byte-aligned CPU buffer is fine. A
+- **Alignment diagnostics.** Each frontend's start address must be aligned to the
+  width of the bus it drives (for example 8 B on a 64-bit bus, 16 B on a 128-bit
+  bus). Alignment is per side, so a buffer aligned to the narrow bus is fine. A
   misaligned start is not blocked but is flagged by the **Start misaligned**
   status bit (Status `0x04`, bit 3), so integration failures are visible instead
   of silent data corruption.
@@ -123,18 +123,19 @@ Differences between `sourceWidth` and `destWidth` are bridged transparently, but
 they add a few integration constraints:
 
 - **Alignment is per side.** Each frontend's start address must be aligned to the
-  width of the bus it drives (4 B for a 32-bit bus, 64 B for a 512-bit bus). A
-  misaligned start is not blocked but is flagged by the `Start misaligned` status
-  bit (see [register map](docs/RegisterMap.md#status-register-0x04)).
-- **Line lengths are in bus words.** `bytes / (width / 8)`: the same 64 B line is
-  length `16` on a 32-bit side and `1` on a 512-bit side. Both sides must
-  describe the same number of bytes per line, and matching `lineCount`/strides,
-  or the two frontends desync.
+  width of the bus it drives (for example 8 B on a 64-bit bus, 16 B on a 128-bit
+  bus). A misaligned start is not blocked but is flagged by the `Start misaligned`
+  status bit (see [register map](docs/RegisterMap.md#status-register-0x04)).
+  Alignment is per side, so a buffer aligned to the narrow bus is fine.
+- **Line lengths are in bus words.** `bytes / (width / 8)`: the same line is a
+  different count on each side (for example 16 bytes is length `2` on a 64-bit bus
+  and `1` on a 128-bit bus). Both sides must describe the same number of bytes per
+  line, and matching `lineCount`/strides, or the two frontends desync.
 - **AXI4 burst limits.** A burst must not exceed **256 beats** and must not cross
-  a **4 KiB** boundary. A 512-bit beat is 64 B, so 4 KiB is only 64 beats — set
-  `readMaxBurst` to a non-zero value (≤ 256) for wide *source* buses, especially
-  a 512-bit read bus (`Direction = 1`), where the default `readMaxBurst = 0`
-  issues an unsplit, out-of-spec burst. See
+  a **4 KiB** boundary. On a wide bus a 4 KiB boundary is only `4096 / (width/8)`
+  beats (e.g. 256 beats on a 128-bit bus, the AXI beat limit), so set
+  `readMaxBurst` to a non-zero value (≤ 256) for wide *source* buses, where the
+  default `readMaxBurst = 0` issues an unsplit, out-of-spec burst. See
   [`readMaxBurst`](docs/Configuration.md#readmaxburst).
 - **Whole-beat granularity.** Only complete beats are moved; sub-beat byte
   offsets are not supported, and one width must be an integer multiple of the
@@ -153,18 +154,19 @@ selects which physical port is the source at runtime:
 | `1`         | `io.write` (`destWidth`)  | `io.read` (`sourceWidth`) |
 
 This lets a single build move data in either direction over the same fixed-width
-physical buses, so a `32<->512` core can do both 32-to-512 and 512-to-32 without
-a second netlist. Only the selected direction is active per transfer; write the
-register before setting the control register. For configurations that are not
-AXI4<->AXI4 the datapath is single-directional and the register is ignored.
+physical buses, so an asymmetric core (for example a `64<->128` build) can do both
+64-to-128 and 128-to-64 without a second netlist. Only the selected direction is
+active per transfer; write the register before setting the control register. For
+configurations that are not AXI4<->AXI4 the datapath is single-directional and the
+register is ignored.
 
 Because the roles swap, the *Reader*/*Writer* register groups swap with them: at
-`Direction = 1` the 512-bit (`destWidth`) port is the source and is programmed by
-the **Reader\*** registers, while the 32-bit port is the destination programmed by
-the **Writer\*** registers. Line lengths stay in the selected port's word units
-(so the 512-bit port takes length in 64 B words), and the address-step `wordShift`
-follows the direction automatically. Alignment is unchanged — the 512-bit side
-always needs 64 B, the 32-bit side 4 B.
+`Direction = 1` the wider (`destWidth`) port is the source and is programmed by
+the **Reader\*** registers, while the narrower (`sourceWidth`) port is the
+destination programmed by the **Writer\*** registers. Line lengths stay in each
+selected port's own bus words, and the address-step `wordShift` follows the
+direction automatically. Alignment is unchanged — each side always needs its own
+bus-width alignment.
 
 Asymmetric widths and performance
 ---------------------------------

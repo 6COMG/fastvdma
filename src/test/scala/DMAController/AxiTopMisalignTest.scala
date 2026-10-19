@@ -25,8 +25,8 @@ import DMAController.DMAConfig._
   * Directed test for the `Start misaligned` status bit: a start address that is
   * not aligned to its own frontend's data-bus width is flagged, an aligned one
   * is not, and writing Control clears the sticky flag. Each side has its own
-  * granularity (4 B for the 32-bit CPU side, 64 B for the 512-bit island side),
-  * so a 4-byte-aligned CPU source is valid.
+  * granularity (its own bus width), so a start aligned to the narrow side only
+  * is valid.
   */
 class AxiTopMisalignTest(dut: DMATop)(implicit val dmaConfig: DMAConfig)
     extends PeekPokeTester(dut) {
@@ -93,11 +93,11 @@ class AxiTopMisalignTest(dut: DMATop)(implicit val dmaConfig: DMAConfig)
 
   private def misalignedBit(status: BigInt): BigInt = (status >> 3) & 1
 
-  // Writer (512-bit island) must be aligned to its own 64-byte granularity.
+  // The wide destination side must be aligned to its own bus-width granularity.
   arm(readerAddr = 0, writerAddr = 4)
   val misalignedStatus = readStatus()
   assert(misalignedBit(misalignedStatus) == 1,
-    f"Start misaligned bit not set for island addr 4: status=0x$misalignedStatus%x")
+    f"Start misaligned bit not set for wide-side addr 4: status=0x$misalignedStatus%x")
 
   // Writing Control clears the sticky flag.
   control.writePush(Register.Ctrl, 0x0)
@@ -112,16 +112,16 @@ class AxiTopMisalignTest(dut: DMATop)(implicit val dmaConfig: DMAConfig)
   assert(misalignedBit(alignedStatus) == 0,
     f"Start misaligned bit set for fully aligned start: status=0x$alignedStatus%x")
 
-  // A 4-byte-aligned CPU source is fine: the reader only needs its own 4-byte
-  // granularity, not the island's 64-byte one.
+  // A start aligned to the narrow side only is fine: the source only needs its
+  // own bus-width granularity, not the wide side's.
   arm(readerAddr = 4, writerAddr = 0)
   val sourceAlignedStatus = readStatus()
   assert(misalignedBit(sourceAlignedStatus) == 0,
-    f"Start misaligned bit set for 4-byte-aligned CPU source: status=0x$sourceAlignedStatus%x")
+    f"Start misaligned bit set for narrow-aligned source: status=0x$sourceAlignedStatus%x")
 
-  // A reader start that is not aligned to its own 4-byte width is flagged.
+  // A source start that is not aligned to its own bus width is flagged.
   arm(readerAddr = 2, writerAddr = 0)
   val sourceMisalignedStatus = readStatus()
   assert(misalignedBit(sourceMisalignedStatus) == 1,
-    f"Start misaligned bit not set for CPU addr 2: status=0x$sourceMisalignedStatus%x")
+    f"Start misaligned bit not set for source addr 2: status=0x$sourceMisalignedStatus%x")
 }

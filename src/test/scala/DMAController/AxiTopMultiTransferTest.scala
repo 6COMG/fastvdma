@@ -22,12 +22,12 @@ import chiseltest.iotesters.PeekPokeTester
 import DMAController.DMAConfig._
 
 /**
-  * Two back-to-back forward transfers (CPU/source bus -> island/destination
-  * bus), each writing a distinct one-word tag to a distinct island address, with
-  * the driver waiting for each transfer to complete before re-arming (the
+  * Two back-to-back forward transfers (source bus -> destination bus), each
+  * writing a distinct one-word tag to a distinct destination address, with the
+  * driver waiting for each transfer to complete before re-arming (the
   * conservative sequence). Checks both tags survive at their own addresses.
   */
-class AxiTopMultiTransferTest(dut: DMATop, islandSpacingBytes: Int)(implicit val dmaConfig: DMAConfig)
+class AxiTopMultiTransferTest(dut: DMATop, destSpacingBytes: Int)(implicit val dmaConfig: DMAConfig)
     extends PeekPokeTester(dut) {
 
   private val io = dut.io.asInstanceOf[Bundle {
@@ -64,7 +64,7 @@ class AxiTopMultiTransferTest(dut: DMATop, islandSpacingBytes: Int)(implicit val
   private def tagBytes(base: Int): Array[Byte] =
     Array.tabulate(lineBytes)(i => ((base + i) & 0xff).toByte)
 
-  private def runTransfer(srcBytes: Array[Byte], islandAddr: Int): Unit = {
+  private def runTransfer(srcBytes: Array[Byte], destAddr: Int): Unit = {
     val srcWords = WordPacking.bytesToWords(srcBytes, readBytes)
     for (i <- srcWords.indices) reader.buf(i) = srcWords(i)
 
@@ -72,7 +72,7 @@ class AxiTopMultiTransferTest(dut: DMATop, islandSpacingBytes: Int)(implicit val
     control.writePush(Register.ReaderLineLen, readLineWords)
     control.writePush(Register.ReaderLineCnt, 1)
     control.writePush(Register.ReaderStride, 0)
-    control.writePush(Register.WriterStartAddr, islandAddr)
+    control.writePush(Register.WriterStartAddr, destAddr)
     control.writePush(Register.WriterLineLen, writeLineWords)
     control.writePush(Register.WriterLineCnt, 1)
     control.writePush(Register.WriterStride, 0)
@@ -96,27 +96,27 @@ class AxiTopMultiTransferTest(dut: DMATop, islandSpacingBytes: Int)(implicit val
     step(50)
   }
 
-  private val islandA = 0
-  private val islandB = islandSpacingBytes
+  private val destA = 0
+  private val destB = destSpacingBytes
 
   private val tagA = tagBytes(0x10)
   private val tagB = tagBytes(0x80)
 
-  runTransfer(tagA, islandA)
-  runTransfer(tagB, islandB)
+  runTransfer(tagA, destA)
+  runTransfer(tagB, destB)
 
   private val expA = WordPacking.bytesToWords(tagA, writeBytes)(0) & writeMask
   private val expB = WordPacking.bytesToWords(tagB, writeBytes)(0) & writeMask
 
-  private val gotA = writer.buf(islandA / writeBytes) & writeMask
-  private val gotB = writer.buf(islandB / writeBytes) & writeMask
+  private val gotA = writer.buf(destA / writeBytes) & writeMask
+  private val gotB = writer.buf(destB / writeBytes) & writeMask
 
   assert(
     gotA == expA,
-    s"island[$islandA] clobbered: got 0x${gotA.toString(16)}, expected (tag A) 0x${expA.toString(16)}"
+    s"dest[$destA] clobbered: got 0x${gotA.toString(16)}, expected (tag A) 0x${expA.toString(16)}"
   )
   assert(
     gotB == expB,
-    s"island[$islandB] not written / aliased: got 0x${gotB.toString(16)}, expected (tag B) 0x${expB.toString(16)}"
+    s"dest[$destB] not written / aliased: got 0x${gotB.toString(16)}, expected (tag B) 0x${expB.toString(16)}"
   )
 }

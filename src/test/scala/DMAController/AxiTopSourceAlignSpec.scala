@@ -20,15 +20,15 @@ import org.scalatest.flatspec.AnyFlatSpec
 import DMAController.DMAConfig._
 
 /**
-  * Checks that a 4-byte-aligned CPU source buffer works when the wider island
-  * destination is aligned to its own bus width.
+  * Checks that a source buffer aligned only to the narrow side works when the
+  * wider destination is aligned to its own bus width.
   */
 class AxiTopSourceAlignSpec extends AnyFlatSpec with ChiselScalatestTester {
   behavior of "AXI top wrapper source-buffer alignment"
 
   private val cfg = new DMAConfig("AXI_AXIL_AXI", sourceWidth = 32, destWidth = 512)
 
-  it should "copy a 4-byte-aligned source to a 64-byte-aligned island address" in {
+  it should "copy a narrow-side-aligned source to a wide-side-aligned address" in {
     test(new DMATop()(cfg)).runPeekPoke(new AxiTopSourceAlignTest(_)(cfg))
   }
 }

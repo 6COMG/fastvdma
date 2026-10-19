@@ -11,14 +11,14 @@ make verilog
 ```
 
 For example, an AXI4 source / AXI4 destination core with a 64-bit source bus and
-a 512-bit destination bus:
+a 128-bit destination bus:
 
 ```scala
 new DMAConfig(
     busConfig = "AXI_AXIL_AXI",
     addrWidth = 32,
     sourceWidth = 64,
-    destWidth = 512,
+    destWidth = 128,
     readMaxBurst = 256,   // split read bursts (AXI4: <=256 beats, no 4 KiB crossing)
     writeMaxBurst = 16,
     reader4KBarrier = false,
@@ -61,7 +61,7 @@ port `io.read` in the default direction).
 The value must be a multiple of **8** (a whole number of bytes). It does not have
 to equal `destWidth`; the two widths may differ as long as one is an integer
 multiple of the other (a width converter bridges them). Supported values include
-**32**, **64** and **512**.
+**32**, **64**, **128** and **512**.
 :::
 
 ---
@@ -74,7 +74,7 @@ write port `io.write` in the default direction).
 :::{admonition}
 The value must be a multiple of **8** (a whole number of bytes) and an integer
 multiple of `sourceWidth` (or vice versa). Supported values include **32**,
-**64** and **512**.
+**64**, **128** and **512**.
 :::
 
 :::{admonition}
@@ -86,9 +86,9 @@ destination. See the [register map](RegisterMap.md#direction-register-0x38).
 :::{admonition}
 :class: note
 Asymmetric widths add integration constraints: each side's start address must be
-aligned to its own bus width (4 B for 32-bit, 64 B for 512-bit), line lengths are
-expressed in that side's bus words, and AXI4 bursts must not exceed 256 beats or
-cross 4 KiB. See [Width-related
+aligned to its own bus width (for example 8 B for 64-bit, 16 B for 128-bit), line
+lengths are expressed in that side's bus words, and AXI4 bursts must not exceed
+256 beats or cross 4 KiB. See [Width-related
 constraints](../README.md#width-related-constraints) and
 [`readMaxBurst`](#readmaxburst).
 :::
@@ -109,10 +109,10 @@ splitter** (the whole line is issued as one burst).
 :::{admonition}
 :class: warning
 AXI4 bursts must not exceed **256 beats** and must not cross a **4 KiB**
-boundary. On a wide source bus these limits are reached quickly — a 512-bit
-(64 B) beat crosses 4 KiB after only **64 beats**. Set `readMaxBurst` to a
+boundary. On a wide source bus these limits are reached quickly — a 128-bit
+(16 B) beat crosses 4 KiB after only **256 beats**. Set `readMaxBurst` to a
 non-zero value (≤ 256) whenever a source line can exceed the bus limits, in
-particular for a **512-bit source**, which is `BUS-IN` under `Direction = 1`.
+particular for a wide source bus, which is `BUS-IN` under `Direction = 1`.
 Leaving it at `0` in that case issues an out-of-spec burst that hangs or aliases.
 :::
 

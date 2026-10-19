@@ -21,8 +21,8 @@ import DMAController.DMAConfig._
 
 /**
   * Regression coverage for the `Start misaligned` status bit. Alignment is per
-  * side (each frontend's own data-bus width), so a 4-byte-aligned 32-bit CPU
-  * source is valid while the 512-bit island side needs 64-byte alignment.
+  * side (each frontend's own data-bus width), so a start aligned to the narrow
+  * source side is valid while the wide side needs its own larger alignment.
   */
 class AxiTopMisalignSpec extends AnyFlatSpec with ChiselScalatestTester {
   behavior of "AXI top wrapper start alignment diagnostics"

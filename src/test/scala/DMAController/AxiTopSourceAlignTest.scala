@@ -22,11 +22,11 @@ import chiseltest.iotesters.PeekPokeTester
 import DMAController.DMAConfig._
 
 /**
-  * A source (CPU/read) buffer only needs to be aligned to the narrower bus
-  * width (4 B for a 32-bit reader), while the destination (island/writer) must
-  * be aligned to its own wider width. This checks that a 4-byte-aligned source
-  * copies correctly to a 64-byte-aligned island destination (i.e. that the
-  * 32-bit MCU's natural 4-byte alignment is usable).
+  * A source buffer only needs to be aligned to its own (narrower) bus width,
+  * while the destination must be aligned to its own (wider) width. This checks
+  * that a start aligned only to the narrow side copies correctly to a
+  * wide-side-aligned destination (i.e. that the narrow side's natural alignment
+  * is usable).
   */
 class AxiTopSourceAlignTest(dut: DMATop)(implicit val dmaConfig: DMAConfig)
     extends PeekPokeTester(dut) {
@@ -65,7 +65,7 @@ class AxiTopSourceAlignTest(dut: DMATop)(implicit val dmaConfig: DMAConfig)
   private def tagBytes(base: Int): Array[Byte] =
     Array.tabulate(lineBytes)(i => ((base + i) & 0xff).toByte)
 
-  private def runTransfer(srcByteAddr: Int, srcBytes: Array[Byte], islandAddr: Int): Unit = {
+  private def runTransfer(srcByteAddr: Int, srcBytes: Array[Byte], destAddr: Int): Unit = {
     val srcWords = WordPacking.bytesToWords(srcBytes, readBytes)
     val srcWordIndex = srcByteAddr / readBytes
     for (i <- srcWords.indices) reader.buf(srcWordIndex + i) = srcWords(i)
@@ -74,7 +74,7 @@ class AxiTopSourceAlignTest(dut: DMATop)(implicit val dmaConfig: DMAConfig)
     control.writePush(Register.ReaderLineLen, readLineWords)
     control.writePush(Register.ReaderLineCnt, 1)
     control.writePush(Register.ReaderStride, 0)
-    control.writePush(Register.WriterStartAddr, islandAddr)
+    control.writePush(Register.WriterStartAddr, destAddr)
     control.writePush(Register.WriterLineLen, writeLineWords)
     control.writePush(Register.WriterLineCnt, 1)
     control.writePush(Register.WriterStride, 0)
@@ -102,7 +102,7 @@ class AxiTopSourceAlignTest(dut: DMATop)(implicit val dmaConfig: DMAConfig)
 
   // Baseline: source at its natural (0) address.
   runTransfer(0, tag, 0)
-  // 4-byte-aligned (not 64-byte-aligned) source, island still 64-byte aligned.
+  // a start aligned only to the narrow side, destination wide-side aligned.
   runTransfer(readBytes, tag, 0)
 
   private val exp = WordPacking.bytesToWords(tag, writeBytes)(0) & writeMask
@@ -110,6 +110,6 @@ class AxiTopSourceAlignTest(dut: DMATop)(implicit val dmaConfig: DMAConfig)
 
   assert(
     got == exp,
-    f"4-byte-aligned source corrupted: got 0x$got%x, expected 0x$exp%x"
+    f"narrow-aligned source corrupted: got 0x$got%x, expected 0x$exp%x"
   )
 }

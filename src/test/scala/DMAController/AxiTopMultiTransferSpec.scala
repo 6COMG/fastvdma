@@ -20,15 +20,15 @@ import org.scalatest.flatspec.AnyFlatSpec
 import DMAController.DMAConfig._
 
 /**
-  * Regression coverage for two back-to-back transfers to distinct island
-  * (destination) addresses across a 32-bit -> 512-bit width crossing.
+  * Regression coverage for two back-to-back transfers to distinct destination
+  * addresses across an asymmetric width crossing.
   *
   * The conservative cases arm the next transfer only after the previous one
   * completes; the pending-start case arms the second transfer while the first is
   * still running, which the default depth-1 pending start must queue.
   */
 class AxiTopMultiTransferSpec extends AnyFlatSpec with ChiselScalatestTester {
-  behavior of "AXI top wrapper multi-transfer (32-bit -> 512-bit island)"
+  behavior of "AXI top wrapper multi-transfer (asymmetric widths)"
 
   private val cfg = new DMAConfig("AXI_AXIL_AXI", sourceWidth = 32, destWidth = 512)
 
@@ -37,11 +37,11 @@ class AxiTopMultiTransferSpec extends AnyFlatSpec with ChiselScalatestTester {
   private val cfgBurst = new DMAConfig("AXI_AXIL_AXI", sourceWidth = 32, destWidth = 512,
                                        readMaxBurst = 256, writeMaxBurst = 16)
 
-  it should "keep two transfers at island addresses far apart" in {
+  it should "keep two transfers at destination addresses far apart" in {
     test(new DMATop()(cfg)).runPeekPoke(new AxiTopMultiTransferTest(_, 1024)(cfg))
   }
 
-  it should "keep two transfers one island word apart (no aliasing)" in {
+  it should "keep two transfers one destination word apart (no aliasing)" in {
     test(new DMATop()(cfg)).runPeekPoke(new AxiTopMultiTransferTest(_, 64)(cfg))
   }
 

@@ -60,12 +60,11 @@ immediately.
 |4-31|-              |Unused                                                     |
 
 The start address of each frontend must be aligned to its **own** data-bus width
-(i.e. `1 << wordShift` bytes): 4 bytes for a 32-bit CPU side, 64 bytes for a
-512-bit island side. Alignment is per side, so a 4-byte-aligned 32-bit CPU buffer
-is valid even when the destination is a 512-bit bus. The AXI frontends issue
-full-width bursts, so a start that is not size-aligned would mis-pack data. It is
-not blocked, but is flagged by the `Start misaligned` status bit so integration
-can fail fast.
+(i.e. `1 << wordShift` bytes): for example 8 bytes on a 64-bit bus, 16 bytes on a
+128-bit bus. Alignment is per side, so a buffer aligned to the narrow bus is valid
+even when the other bus is wider. The AXI frontends issue full-width bursts, so a
+start that is not size-aligned would mis-pack data. It is not blocked, but is
+flagged by the `Start misaligned` status bit so integration can fail fast.
 
 ---
 

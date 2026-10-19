@@ -60,8 +60,8 @@ class AddressGenerator(val addrWidth: Int, val dataWidth: Int)(implicit dmaConfi
   // Full-width AXI bursts (see AXI4Reader/Writer) require the start address to
   // be aligned to the active data-bus width, i.e. `1 << wordShift` bytes.
   // `wordShift` already tracks the runtime source/destination selection, so this
-  // is per side: the narrower side only needs its own width (e.g. 4 B for a
-  // 32-bit CPU buffer), the wider side its own (e.g. 64 B for a 512-bit island).
+  // is per side: the narrower side only needs its own width (e.g. 8 B for a
+  // 64-bit bus), the wider side its own (e.g. 16 B for a 128-bit bus).
   // A misaligned start is flagged (but not gated) so integration can fail fast.
   val alignMask = ((1.U << io.ctl.wordShift) - 1.U)(addrWidth - 1, 0)
   val misaligned = (io.ctl.startAddress & alignMask) =/= 0.U
